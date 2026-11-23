@@ -1,7 +1,7 @@
 ---
 name: ekip
-description: Multi-agent team workflow with model routing (Opus lead, Sonnet workers, Haiku scouts, Opus verifier). ALWAYS use this when the user says "Ekip ile yap", "ekiple yap", "ekip ile", "ekiple", "ekip olarak", "ekibe ver", "do it with the team" or "use the team", for any kind of task (build, fix, review, debug, research).
-when_to_use: Turkish or English requests to do a task as a team or with agents, e.g. "Ekip ile yap", "ekiple incele", "ekip ile hata ayıkla", "bunu ekibe ver".
+description: Multi-agent team workflow with model routing (Opus lead, Sonnet workers, Haiku scouts, Opus verifier). ALWAYS use this when the user asks for work to be done by the team, e.g. "Ekip ile yap", "ekiple yap", "ekiple incele", "ekip olarak çöz", "bunu ekibe ver", "takımla yap", "do it with the team", "use agent teams", for any task (build, fix, review, debug, research).
+when_to_use: Only when the user asks the agent team to do a task. Not when "ekip"/"team" just appears in another sense, e.g. "ekip ile ilgili", "ekiple konuştum", "team colors".
 argument-hint: "<task>"
 ---
 
@@ -44,8 +44,7 @@ Rules:
 - Haiku finds and summarizes; it **never** decides, reviews or verifies. Re-check anything surprising it reports.
 - Do the hard parts yourself instead of handing them off: hand-off loses context, and you have it.
 - For a slice that is hard but still separable, you may pass `model: "opus"` on that one `ekip:uygulayici` call.
-- For a security review, or a hypothesis that needs deep tracing, pass `effort: "high"` on that `inceleyici` call; otherwise keep the defaults.
-- Never request `fable`. If a requested model isn't available, Claude Code substitutes another one (with a warning for subagents, without one for teammates); don't rely on any model beyond opus/sonnet/haiku.
+- Never request `fable`. If a requested model is blocked, Claude Code substitutes another one (for teammates silently, with your model); don't rely on any model beyond opus/sonnet/haiku.
 
 ## 3. Spawning
 

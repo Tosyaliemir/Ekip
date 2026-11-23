@@ -17,6 +17,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export function normPath(p) {
+  if (p === "~" || p.startsWith("~/") || p.startsWith("~\\")) p = join(homedir(), p.slice(1));
   let s = resolve(p).replace(/\\/g, "/").replace(/\/+$/, "");
   if (process.platform === "win32" || /^[a-z]:\//i.test(s)) s = s.toLowerCase();
   return s;
@@ -30,7 +31,8 @@ export function loadConfig(projectDir, file = gatesFile()) {
   if (!projectDir || !existsSync(file)) return null;
   let all;
   try {
-    all = JSON.parse(readFileSync(file, "utf8"));
+    // Windows PowerShell 5.1 writes UTF-8 with a BOM; JSON.parse rejects it.
+    all = JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, ""));
   } catch {
     return null;
   }

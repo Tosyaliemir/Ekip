@@ -6,6 +6,8 @@
 // not asking the agent team to work: "ekip ile ilgili", "ekiple konuştum", ...
 const ABOUT = "(?!\\s*(?:ilgili|hakkında|hakkinda|konuş|konus|görüş|gorus|toplant|buluş|bulus|tanış|tanis))";
 
+const END = "(?=\\s*(?:[.!?,:;)]|$|\\s+(?:for|to|on)\\b))";
+
 const TRIGGERS = [
   // ekip ile / ekip olarak / ekiple / ekip'le / ekipçe / ekibimle / ekibimiz ile
   `\\bek(?:ip|ibim|ibimiz)(?:\\s+(?:ile|olarak)|['’]?le|çe)(?![a-zçğıöşü])${ABOUT}`,
@@ -13,9 +15,10 @@ const TRIGGERS = [
   "\\bekibe\\s+ver(?![a-zçğıöşü])",
   // takımla yap / takım ile yap
   "\\btakım(?:\\s+ile|la)\\s+yap",
-  // English
-  "\\b(?:do|build|fix|review|debug|handle)\\s+(?:it|this|that)\\s+(?:with\\s+the|as\\s+a)\\s+team\\b",
-  "\\buse\\s+(?:the\\s+)?(?:agent\\s+)?team\\b",
+  // English: the phrase must end the clause or continue with for/to/on,
+  // so "use team colors", "the team calendar", "the team's", "team name" don't match.
+  `\\b(?:do|build|fix|review|debug|handle)\\s+(?:it|this|that)\\s+(?:with\\s+the|as\\s+a)\\s+teams?${END}`,
+  `\\buse\\s+(?:the\\s+|an?\\s+)?(?:agent\\s+)?teams?${END}`,
 ];
 const TRIGGER = new RegExp(TRIGGERS.join("|"));
 

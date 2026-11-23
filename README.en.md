@@ -29,10 +29,12 @@ A real Agent Team is only formed in the two cases where teammates arguing with e
 | Role | Model | Access | Job |
 |---|---|---|---|
 | lead (main session) | Opus | all | plan, architecture, hard code, shared contracts, final call |
-| `kesif` (scout) | Haiku | read-only | find files and symbols; summarize logs and long files |
+| `kesif` (scout) | Haiku | read-only (by tools) | find files and symbols; summarize logs and long files |
 | `uygulayici` (implementer) | Sonnet | writes | routine implementation in its own files, smallest diff |
-| `inceleyici` (examiner) | Sonnet | read-only | one review lens, or one bug hypothesis |
-| `dogrulayici` (verifier) | Opus | read-only | verifies claims by running things itself |
+| `inceleyici` (examiner) | Sonnet | read-only (by instruction)¹ | one review lens, or one bug hypothesis |
+| `dogrulayici` (verifier) | Opus | read-only (by instruction)¹ | verifies claims by running things itself |
+
+¹ They have Bash so they can run tests and `git diff`; not writing files is enforced by their instructions, not by a tool restriction.
 
 Limits:
 - At most 4 parallel subagents and 3 teammates, and no separate "lead" teammate.
@@ -43,7 +45,7 @@ Limits:
 
 **Requirements:**
 - Claude Code **v2.1.288 or newer**. That version fixed plugin agents so they run with their own prompts. v2.1.329+ is recommended.
-- **Node.js** on `PATH`. The hooks are Node scripts, so the same code runs on Windows and Linux.
+- **Node.js 18 or newer** on `PATH`. The hooks are Node scripts, so the same code runs on Windows and Linux.
 
 1. In Claude Code:
    ```
@@ -51,7 +53,7 @@ Limits:
    /plugin install ekip@ekip
    ```
 2. Settings. Plugins can't set environment variables, so you have to add these yourself. Merge [`examples/settings.json`](examples/settings.json) into `~/.claude/settings.json`:
-   - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` turns on team mode. **The cost:** while teams are on, every subagent Claude names starts as a teammate, even in sessions where you don't use Ekip. If you don't want that, put this line in the `.claude/settings.local.json` of the projects you want, not in your global settings. Ekip also works with teams off: the team cases run as subagents, but the teammates can't debate each other directly.
+   - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` turns on team mode. **The cost:** while teams are on, every subagent Claude names starts as a teammate, even in sessions where you don't use Ekip. If you don't want that, put this line in the `.claude/settings.local.json` of the projects you want, not in your global settings. Ekip also works with teams off: the team cases run as subagents, and the debate between them may be less direct than in team mode.
    - `permissions.allow` pre-approves common read and test commands. Teammates' permission prompts show up in your session, and a teammate waiting on one can't make progress.
    - `teammateMode`: leave it at `in-process`. It works in any terminal; Windows Terminal doesn't support split panes. Inside tmux on Linux, `auto` also works.
 3. Restart Claude Code and try:
@@ -65,17 +67,17 @@ You can also call it by hand with `/ekip:ekip <task>`.
 
 **Triggers:**
 - Turkish: `Ekip ile yap`, `ekip ile …`, `ekiple …`, `ekip'le …`, `ekibimle …`, `ekip olarak …`, `ekipçe …`, `bunu ekibe ver`, `takımla yap`
-- English: `do it with the team`, `fix this as a team`, `use the team`, `use agent team`
+- English: `do it with the team`, `fix this as a team`, `use the team for …`, `use agent teams`
 
 Case and the Turkish İ/ı don't matter.
 
-**Doesn't trigger:** "ekipman", "ekipler", "ekip ile ilgili …" ("about the team"), "ekiple konuştum" ("I talked with the team"), "ekibe verilen …", "I met with the team".
+**Doesn't trigger:** "ekipman", "ekipler", "ekip ile ilgili …" ("about the team"), "ekiple konuştum" ("I talked with the team"), "ekibe verilen …", "I met with the team", "use team colors", "the team calendar".
 
 If a phrase slips through or is caught by mistake, the skill's own description still guides Claude, and the note the hook adds tells it to ignore the note when the message is about the plugin itself or about a human team.
 
 ## Optional quality gate
 
-To run your project's check command whenever an `uygulayici` finishes, add the project path and command to **your own** `~/.claude/ekip-gates.json` (example: [`examples/ekip-gates.json`](examples/ekip-gates.json)):
+To run your project's check command whenever an `uygulayici` finishes, add the project's **absolute path** and command to **your own** `~/.claude/ekip-gates.json` (example: [`examples/ekip-gates.json`](examples/ekip-gates.json)):
 
 ```json
 { "C:/Users/Emir/projeler/sahne": "cargo check -q",
@@ -90,20 +92,34 @@ To run your project's check command whenever an `uygulayici` finishes, add the p
 ## Cost
 
 - Team mode costs roughly one full session per teammate, which is why it's limited to two cases.
-- Near your usage limits, the most effective step is turning teams off: `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"`. It applies to the running session right away.
+- Near your usage limits, the most effective step is turning teams off: set `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` **in the same file** where you set `"1"`, because project settings override user settings. It applies to the running session right away.
 - `CLAUDE_CODE_SUBAGENT_MODEL` + `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is **not** recommended: it makes the Opus verifier cheaper, but it also moves the Haiku scout up to the more expensive model.
-- `/usage` shows who spent what.
+- `/usage` shows your plan usage.
 
 ## Known limitations
 
 According to the Claude Code docs:
 - Agent Teams are still experimental. `/resume` and `/rewind` don't bring back in-process teammates.
 - Teammates don't get the agent's `maxTurns` or `omitClaudeMd`, so the lead gives them small, concrete tasks.
-- If a requested model isn't on your plan, Claude Code switches to another model. It warns for subagents, but not for teammates.
+- If a requested model is blocked (for example by an organization's `availableModels` list), Claude Code uses another model; for teammates it does this silently, falling back to the lead's model.
 
 From user reports on GitHub (may not hold in every version):
 - On Windows, the lead can get stuck in very long team sessions. Use a fresh session for team work.
 - An in-process teammate's header can show the lead's model. Check the real model with `/tasks`.
+
+## Update and uninstall
+
+```
+claude plugin marketplace update ekip
+claude plugin update ekip@ekip      # then restart Claude Code
+claude plugin uninstall ekip@ekip
+```
+
+## Troubleshooting
+
+- **"Ekip ile yap" doesn't trigger:** check that `node --version` works in the terminal you start Claude Code from. Start with `claude --debug hooks` and look for the `additionalContext` line. As a fallback, call `/ekip:ekip <task>` by hand.
+- **The quality gate doesn't run:** the path in `~/.claude/ekip-gates.json` must be the absolute path of the project root you opened Claude Code in.
+- **No team forms:** check that `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` really is `"1"` and that a higher-priority settings file doesn't set it to `"0"`.
 
 ## Development
 

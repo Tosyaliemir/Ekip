@@ -1,5 +1,15 @@
 # Değişiklik günlüğü / Changelog
 
+## 0.2.1 - 2026-11-23
+
+Fixes from a second independent review. / İkinci bağımsız incelemeden gelen düzeltmeler.
+
+- **Trigger:** English phrases must end the clause or continue with "for/to/on", so "use team colors", "the team calendar" and "team name" no longer trigger; "use agent teams" now does. The skill description lists only phrases that ask for work, matching the hook.
+- **Skill:** removed the rule that had the lead raise `effort` on its own judgment, which conflicts with the Agent tool's own guidance. Corrected the wording on model substitution.
+- **Gate:** accepts a gates file saved with a UTF-8 BOM (Windows PowerShell 5.1) and `~/` paths.
+- **README (both languages):** read-only roles marked as tool-enforced vs instruction-enforced; Node 18+; turning teams off must happen in the same settings file; `/usage` wording; new Update/uninstall and Troubleshooting sections; English README, CI badge.
+- **Repo:** English README, this changelog, GitHub Actions (hook tests on Linux and Windows, `claude plugin validate`), `.gitattributes`.
+
 ## 0.2.0 - 2026-11-23
 
 Bağımsız bir incelemeden gelen düzeltmeler. / Fixes from an independent review.

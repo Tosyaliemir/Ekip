@@ -38,6 +38,8 @@ test("trigger phrases match", () => {
     "fix this as a team",
     "Use the team for this refactor",
     "use agent team",
+    "use agent teams for this",
+    "Use the team to fix the crash",
   ]) {
     assert.equal(wantsEkip(p), true, p);
   }
@@ -57,6 +59,10 @@ test("unrelated prompts do not match", () => {
     "ekibe verilen görevleri listele",
     "I met with the team yesterday",
     "takımla maç izledik",
+    "Use team colors in the CSS",
+    "I use the team calendar every day",
+    "use the team's component",
+    "fix it with the team name",
     "/ekip:ekip review",
   ]) {
     assert.equal(wantsEkip(p), false, p);
@@ -104,6 +110,10 @@ test("kapi reads only the user-level gates file, matched by project path", () =>
   assert.equal(fail.status, 2);
   assert.match(fail.stderr, /ekip gate/);
   assert.equal(runHook("kapi.mjs", { ...input, stop_hook_active: true }, env).status, 0);
+
+  // Gates file saved with a UTF-8 BOM (Windows PowerShell 5.1) still works.
+  writeFileSync(gates, "\uFEFF" + JSON.stringify({ [project]: "node -e \"process.exit(3)\"" }));
+  assert.equal(runHook("kapi.mjs", input, env).status, 2);
 
   // Passing gate in object form.
   writeFileSync(gates, JSON.stringify({ [project]: { check: "node -e \"process.exit(0)\"", timeoutSec: 30 } }));
