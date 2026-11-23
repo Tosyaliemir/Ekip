@@ -1,0 +1,15 @@
+{
+  "name": "ekip",
+  "description": "Ekip: lean multi-agent workflow for Claude Code",
+  "owner": {
+    "name": "Tosyaliemir",
+    "url": "https://github.com/Tosyaliemir"
+  },
+  "plugins": [
+    {
+      "name": "ekip",
+      "source": "./",
+      "description": "Say \"Ekip ile yap\": Opus leads, Sonnet works, Haiku scouts, Opus verifies."
+    }
+  ]
+}
