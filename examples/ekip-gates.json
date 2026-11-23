@@ -1,0 +1,5 @@
+{
+  "C:/Users/Emir/projeler/sahne": "cargo check -q",
+  "/home/emir/projeler/sahne": { "check": "cargo check -q", "timeoutSec": 300 },
+  "/home/emir/projeler/qr-logo": "python -m pytest -q -x"
+}

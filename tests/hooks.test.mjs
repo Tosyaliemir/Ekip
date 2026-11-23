@@ -1,8 +1,8 @@
-// Run with: node --test tests/
+// Run with: node --test tests/hooks.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,22 +10,34 @@ import { wantsEkip } from "../hooks/tetik.mjs";
 import { shouldSkip, loadConfig } from "../hooks/kapi.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const runHook = (name, input) =>
-  spawnSync(process.execPath, [join(root, "hooks", name)], { input: JSON.stringify(input), encoding: "utf8" });
+const runHook = (name, input, env = {}) =>
+  spawnSync(process.execPath, [join(root, "hooks", name)], {
+    input: JSON.stringify(input),
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
 
 test("trigger phrases match", () => {
   for (const p of [
     "Ekip ile yap",
     "EKİP İLE YAP",
+    "EKIP ILE YAP",
     "ekip ile şu hatayı ayıkla",
     "bunu ekiple incele",
     "Ekiple yap lütfen",
+    "ekip'le yap",
+    "ekip’le hallet",
+    "ekibimle yap",
     "ekip olarak bak şuna",
     "bunu ekibe ver",
     "ekipçe hallet",
+    "takımla yap",
+    "takım ile yap şunu",
     "Sahne'deki crash'i ekip ile çöz",
     "do it with the team",
+    "fix this as a team",
     "Use the team for this refactor",
+    "use agent team",
   ]) {
     assert.equal(wantsEkip(p), true, p);
   }
@@ -38,8 +50,14 @@ test("unrelated prompts do not match", () => {
     "ekipman listesini güncelle",
     "ekipleri listele",
     "ekipler arası toplantı notu",
+    "ekip ile ilgili README'yi düzelt",
+    "ekip hakkında bir not yaz",
+    "ekiple konuştum, maili yaz",
+    "ekip ile toplantı ayarla",
+    "ekibe verilen görevleri listele",
+    "I met with the team yesterday",
+    "takımla maç izledik",
     "/ekip:ekip review",
-    "teammate settings nasıl açılır",
   ]) {
     assert.equal(wantsEkip(p), false, p);
   }
@@ -66,21 +84,28 @@ test("kapi skips loops and blocked workers", () => {
   assert.equal(shouldSkip({ last_assistant_message: "Status: DONE" }), false);
 });
 
-test("kapi does nothing without config, blocks on failing check, passes on success", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ekip-"));
-  const input = { cwd: dir, stop_hook_active: false, last_assistant_message: "Status: DONE" };
+test("kapi reads only the user-level gates file, matched by project path", () => {
+  const project = mkdtempSync(join(tmpdir(), "ekip-proj-"));
+  const gates = join(mkdtempSync(join(tmpdir(), "ekip-home-")), "ekip-gates.json");
+  const env = { EKIP_GATES_FILE: gates, CLAUDE_PROJECT_DIR: project };
+  const input = { cwd: join(project, "sub"), stop_hook_active: false, last_assistant_message: "Status: DONE" };
 
-  assert.equal(loadConfig(dir), null);
-  assert.equal(runHook("kapi.mjs", input).status, 0);
+  // No gates file: nothing runs.
+  assert.equal(loadConfig(project, gates), null);
+  assert.equal(runHook("kapi.mjs", input, env).status, 0);
 
-  mkdirSync(join(dir, ".claude"));
-  writeFileSync(join(dir, ".claude", "ekip.json"), JSON.stringify({ check: "node -e \"process.exit(3)\"" }));
-  const fail = runHook("kapi.mjs", input);
+  // A gate for a different project: nothing runs.
+  writeFileSync(gates, JSON.stringify({ "/some/other/project": "node -e \"process.exit(3)\"" }));
+  assert.equal(runHook("kapi.mjs", input, env).status, 0);
+
+  // Failing gate for this project (with a trailing slash in the key): blocks once.
+  writeFileSync(gates, JSON.stringify({ [`${project}/`]: "node -e \"process.exit(3)\"" }));
+  const fail = runHook("kapi.mjs", input, env);
   assert.equal(fail.status, 2);
   assert.match(fail.stderr, /ekip gate/);
+  assert.equal(runHook("kapi.mjs", { ...input, stop_hook_active: true }, env).status, 0);
 
-  assert.equal(runHook("kapi.mjs", { ...input, stop_hook_active: true }).status, 0);
-
-  writeFileSync(join(dir, ".claude", "ekip.json"), JSON.stringify({ check: "node -e \"process.exit(0)\"" }));
-  assert.equal(runHook("kapi.mjs", input).status, 0);
+  // Passing gate in object form.
+  writeFileSync(gates, JSON.stringify({ [project]: { check: "node -e \"process.exit(0)\"", timeoutSec: 30 } }));
+  assert.equal(runHook("kapi.mjs", input, env).status, 0);
 });

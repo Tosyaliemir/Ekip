@@ -1,4 +1,0 @@
-{
-  "check": "cargo check -q",
-  "timeoutSec": 300
-}

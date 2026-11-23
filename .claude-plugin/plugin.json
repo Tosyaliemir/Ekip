@@ -1,7 +1,7 @@
 {
   "name": "ekip",
   "displayName": "Ekip",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lean multi-agent workflow for Claude Code. Say \"Ekip ile yap\": the Opus session leads, Sonnet workers implement and review, Haiku scouts search, Opus verifies. Agent teams only where they pay off.",
   "author": {
     "name": "Tosyaliemir",

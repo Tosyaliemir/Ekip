@@ -3,11 +3,11 @@
 Claude Code için yalın bir çoklu ajan iş akışı. Bir oturumda **"Ekip ile yap"** de, gerisini o halletsin:
 
 - **Opus** (ana oturumun) liderdir: planlar, zor kısımları kendisi yazar, son kararı verir.
-- **Sonnet** işçiler rutin uygulama ve incelemeyi yapar.
-- **Haiku** keşifçi yalnızca arar ve özetler; hiçbir zaman karar vermez.
-- **Opus** doğrulayıcı kritik bulguları ve riskli değişiklikleri bağımsız olarak kontrol eder.
+- **Sonnet** işçiler rutin uygulamayı ve incelemeyi yapar.
+- **Haiku** keşifçi yalnızca arar ve özetler; asla karar vermez.
+- **Opus** doğrulayıcı, kritik bulguları ve riskli değişiklikleri bağımsız olarak kontrol eder.
 
-Gerçek bir Agent Team yalnızca gerçekten kazandırdığı üç durumda kurulur. Geri kalan her şey ya tek oturumda ya da ucuz subagent'larla yapılır.
+Gerçek bir Agent Team yalnızca birbirine itiraz etmenin işe yaradığı iki durumda kurulur. Geri kalan her şey tek oturumda ya da ucuz subagent'larla yapılır.
 
 ## Nasıl çalışır
 
@@ -16,40 +16,42 @@ Gerçek bir Agent Team yalnızca gerçekten kazandırdığı üç durumda kurulu
                                                   │
                      ┌────────────────────────────┼────────────────────────────┐
                    Solo                       Subagent'lar                    Takım
-           1-2 dosya, sıralı iş        bağımsız parçalar (varsayılan)   yalnızca 3 durum*
+          1-2 dosya, sıralı iş       bağımsız parçalar (varsayılan)     yalnızca 2 durum*
                      └────────────────────────────┼────────────────────────────┘
                                                   ▼
-                              Kapı: build/test + gerekirse Opus doğrulayıcı
+                           Kapı: build/test + gerekirse Opus doğrulayıcı
 ```
 
-\* (a) nedeni belirsiz, 2-3 rakip açıklaması olan hata; (b) incelemecilerin birbirine itiraz etmesi gereken kritik inceleme; (c) dosya sahipliği net ayrılan, katmanlar arası özellik.
+\* (a) nedeni belirsiz, 2-3 rakip açıklaması olan hata: her hipotezi ayrı bir üye test eder ve diğerlerini çürütmeye çalışır. (b) İncelemecilerin birbirine itiraz etmesi gereken kritik bir inceleme.
 
 | Rol | Model | Yetki | Görev |
 |---|---|---|---|
-| lider (ana oturum) | Opus | hepsi | plan, mimari, zor kod, son karar |
-| `kesif` | Haiku | salt okunur | dosya/sembol bulma, log ve uzun dosya özetleme |
-| `uygulayici` | Sonnet | yazabilir | kendi dosyalarında en küçük diff ile rutin uygulama |
-| `inceleyici` | Sonnet | salt okunur | tek mercekle inceleme ya da tek hata hipotezi |
-| `dogrulayici` | Opus | salt okunur | iddiaları kendisi çalıştırarak doğrulama |
+| lider (ana oturum) | Opus | hepsi | plan, mimari, zor kod, ortak sözleşmeler, son karar |
+| `kesif` | Haiku | salt okunur | dosya ve sembol bulma; log ve uzun dosya özetleme |
+| `uygulayici` | Sonnet | yazabilir | kendi dosyalarında, en küçük diff ile rutin uygulama |
+| `inceleyici` | Sonnet | salt okunur | tek bir mercekle inceleme ya da tek bir hata hipotezi |
+| `dogrulayici` | Opus | salt okunur | iddiaları kendisi çalıştırarak doğrular |
 
-Ayrıca:
-- Aynı anda en fazla 4 subagent ve en fazla 3 takım üyesi çalışır; ayrı bir "lider" üye hiç yoktur.
-- Her ajanın `maxTurns` sınırı ve 150-200 kelimelik rapor şablonu vardır.
-- Hiçbir şey Fable'a bağlı değildir.
+Sınırlar:
+- Aynı anda en fazla 4 subagent ve 3 takım üyesi çalışır; ayrı bir "lider" üye yoktur.
+- Subagent'ların her birinde `maxTurns` sınırı ve 150-200 kelimelik rapor şablonu var.
+- Hiçbir şey Fable'a bağlı değil.
 
 ## Kurulum
 
-**Gerekenler:** Claude Code **v2.1.329 veya üstü** (`claude --version`) ve `PATH`'te **Node.js**. Hook'lar Node ile çalışır, böylece Windows'ta ve Linux'ta aynı kod kullanılır.
+**Gerekenler:**
+- Claude Code **v2.1.288 veya üstü** (plugin ajanlarının kendi promptlarıyla çalışmasını sağlayan düzeltme bu sürümde geldi). v2.1.329+ öneriliyor. Sürümünü `claude --version` ile görebilirsin.
+- `PATH`'te **Node.js**. Hook'lar Node ile çalışıyor, böylece Windows'ta ve Linux'ta aynı kod kullanılıyor.
 
 1. Claude Code içinde:
    ```
    /plugin marketplace add Tosyaliemir/ekip
    /plugin install ekip@ekip
    ```
-2. `~/.claude/settings.json` dosyana [`examples/settings.json`](examples/settings.json) içeriğini ekle. Plugin'ler ortam değişkeni ayarlayamadığı için bu adımı senin yapman gerekiyor:
-   - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` takım modunu açar. Açmazsan Ekip yine çalışır, ama "Takım" modu subagent'larla yürür.
-   - `permissions.allow` satırları sık kullanılan okuma ve test komutlarına önceden izin verir. Takımda tek bir cevaplanmamış izin istemi bütün üyelerin mesajlarını bekletebildiği için bu önemli.
-   - `teammateMode`: Windows'ta `in-process` kalsın. CachyOS'ta tmux içinde çalışıyorsan, her üyeyi ayrı panelde görmek için `auto` yapabilirsin.
+2. Ayarlar. Plugin'ler ortam değişkeni ayarlayamadığı için bunu senin yapman gerekiyor. [`examples/settings.json`](examples/settings.json) dosyasındaki içeriği `~/.claude/settings.json` dosyana ekle:
+   - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` takım modunu açar. **Bedeli:** takımlar açıkken Claude, isim verdiği her subagent'ı takım üyesi olarak başlatır. Bu, Ekip kullanmadığın oturumlarda da geçerlidir. Bunu istemiyorsan satırı global ayara değil, yalnızca istediğin projelerin `.claude/settings.local.json` dosyasına koy. Takımlar kapalıyken de Ekip çalışır; takım vakaları subagent'larla yürür, sadece üyeler birbiriyle doğrudan tartışamaz.
+   - `permissions.allow` sık kullanılan okuma ve test komutlarına önceden izin verir. Takım üyelerinin izin istemleri senin oturumunda çıkar ve cevap bekleyen bir üye ilerleyemez.
+   - `teammateMode`: `in-process` bırak. Her terminalde çalışır; Windows Terminal split-pane desteklemiyor. CachyOS'ta tmux içinde `auto` da kullanılabilir.
 3. Claude Code'u yeniden başlat ve dene:
    ```
    Ekip ile yap: son commit'i incele
@@ -59,40 +61,52 @@ Elle çağırmak için `/ekip:ekip <görev>` de kullanılabilir.
 
 ## Tetikleyen ifadeler
 
-`Ekip ile yap`, `ekip ile …`, `ekiple …`, `ekip olarak …`, `ekipçe …`, `bunu ekibe ver`, `do it with the team`, `use the team`
+**Tetikler:**
+- Türkçe: `Ekip ile yap`, `ekip ile …`, `ekiple …`, `ekip'le …`, `ekibimle …`, `ekip olarak …`, `ekipçe …`, `bunu ekibe ver`, `takımla yap`
+- İngilizce: `do it with the team`, `fix this as a team`, `use the team`, `use agent team`
 
-Büyük harf ve Türkçe İ/ı sorun çıkarmaz. "ekipman", "ekipler" gibi kelimeler tetiklemez. Plugin'in kendisinden ya da insan ekibinden söz ediyorsan, Claude bu notu yok sayar.
+Büyük harf ve Türkçe İ/ı sorun çıkarmaz.
+
+**Tetiklemez:** "ekipman", "ekipler", "ekip ile ilgili …", "ekiple konuştum", "ekibe verilen …", "I met with the team".
+
+Kaçan ya da yanlış yakalanan bir ifade olursa skill'in kendi açıklaması da Claude'u yönlendirir; hook'un eklediği not da "konu plugin'in kendisi ya da insan ekibiyse yok say" der.
 
 ## İsteğe bağlı kalite kapısı
 
-Projenin kökünde `.claude/ekip.json` dosyası varsa, her `uygulayici` işini bitirdiğinde oradaki kontrol komutu çalışır:
+Bir `uygulayici` işini bitirdiğinde projenin kontrol komutunu çalıştırmak için **kendi** `~/.claude/ekip-gates.json` dosyana proje yolunu ve komutu yaz (örnek: [`examples/ekip-gates.json`](examples/ekip-gates.json)):
 
 ```json
-{ "check": "cargo check -q", "timeoutSec": 300 }
+{ "C:/Users/Emir/projeler/sahne": "cargo check -q",
+  "/home/emir/projeler/sahne": { "check": "cargo check -q", "timeoutSec": 300 } }
 ```
 
-- Kontrol başarısız olursa çıktısı uygulayıcıya geri gönderilir ve düzeltmesi için **bir** şans daha verilir; sonsuz döngü oluşmaz.
-- Dosya yoksa kapı hiçbir şey yapmaz.
-- ⚠️ Bu komut, o projede bir `uygulayici` işini bitirdiğinde **senin makinende** çalışır. Güvenmediğin bir depodaki `.claude/ekip.json` dosyasını önce oku.
+- Kontrol başarısız olursa çıktısı uygulayıcıya gönderilir ve düzeltmesi için **bir** şans daha verilir; döngü oluşmaz.
+- Komut yalnızca senin ev dizinindeki bu dosyadan okunur. Klonladığın bir depo kendi içinden komut çalıştıramaz.
+- Hızlı bir komut seç (`cargo check`, `pytest -q -x`). Paralel uygulayıcılar aynı anda bitirirse kapı birkaç kez üst üste çalışabilir. Windows'ta zaman aşımı alt süreçleri her zaman öldüremeyebilir.
+- Kapı yalnızca subagent olarak çalışan uygulayıcılarda devreye girer. Takım modunda kontrolü lider yapar.
 
 ## Maliyet
 
-- Takım modu, takım üyesi başına kabaca tam bir oturum kadar kullanım harcar. Bu yüzden yalnızca yukarıdaki üç durumda kurulur.
-- Limitlere yaklaştığında iki seçenek var:
-  - Tüm işçileri Sonnet'e zorlamak için `settings.json` → `env` içine `"CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"` ve `"CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"` ekle.
-  - Takımları tamamen kapatmak için `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` yap. Bu ayar çalışan oturuma da hemen uygulanır.
+- Takım modu, üye başına kabaca tam bir oturum kadar kullanım harcar; bu yüzden yalnızca iki durumda kurulur.
+- Limitlere yaklaşınca en etkili adım takımları kapatmak: `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"`. Bu ayar çalışan oturuma hemen uygulanır.
+- `CLAUDE_CODE_SUBAGENT_MODEL` ile `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` kullanmanı **önermiyorum**: Opus doğrulayıcıyı ucuzlatırken Haiku keşifçiyi de pahalı modele yükseltir.
 - Kimin ne kadar harcadığını `/usage` komutuyla görebilirsin.
 
-## Bilinen sınırlamalar (Claude Code tarafında)
+## Bilinen sınırlamalar
 
-- Agent Teams hâlâ deneysel. `/resume` ve `/rewind` süreç içi üyeleri geri getirmez. Takım işleri için kısa ve taze oturumlar kullan; Windows'ta uzun oturumlarda liderin takıldığı bildirildi.
-- Süreç içi üyelerin başlığında liderin modeli görünebilir; bu yalnızca bir görüntü hatası. Gerçek modeli `/tasks` ile kontrol et.
-- Bir model planında yoksa Claude Code sessizce başka bir modele düşer.
+Claude Code dokümanına göre:
+- Agent Teams hâlâ deneysel. `/resume` ve `/rewind` süreç içi üyeleri geri getirmez.
+- Takım üyeleri ajan tanımındaki `maxTurns` ve `omitClaudeMd` ayarlarını almaz. Bu yüzden lider üyelere küçük ve somut görevler verir.
+- Planında olmayan bir model istenirse Claude Code başka bir modele geçer. Subagent'larda uyarı verir, takım üyelerinde vermez.
+
+GitHub'daki kullanıcı bildirimlerine göre (her sürümde geçerli olmayabilir):
+- Windows'ta çok uzun takım oturumlarında lider takılabiliyor. Takım işleri için taze oturum aç.
+- Süreç içi üyenin başlığında liderin modeli görünebiliyor. Gerçek modeli `/tasks` ile kontrol et.
 
 ## Geliştirme
 
 ```
-node --test tests/hooks.test.mjs      # hook testleri
+node --test tests/hooks.test.mjs      # hook testleri (tetikleyici ve kapı)
 claude plugin validate .              # plugin ve marketplace doğrulama
 ```
 

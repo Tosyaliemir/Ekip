@@ -2,26 +2,41 @@
 // ("Ekip ile yap", "ekiple incele", "do it with the team", ...), tell Claude
 // to load the ekip skill. Silent for every other prompt. Never blocks.
 
-const TRIGGER =
-  /\bekip(?:\s+(?:ile|olarak)|le|çe)(?![a-zçğıöşü])|\bekibe\s+ver|\b(?:with|use)\s+the\s+team\b/;
+// Words that, right after "ekip ile"/"ekiple", mean the user is talking ABOUT a team,
+// not asking the agent team to work: "ekip ile ilgili", "ekiple konuştum", ...
+const ABOUT = "(?!\\s*(?:ilgili|hakkında|hakkinda|konuş|konus|görüş|gorus|toplant|buluş|bulus|tanış|tanis))";
+
+const TRIGGERS = [
+  // ekip ile / ekip olarak / ekiple / ekip'le / ekipçe / ekibimle / ekibimiz ile
+  `\\bek(?:ip|ibim|ibimiz)(?:\\s+(?:ile|olarak)|['’]?le|çe)(?![a-zçğıöşü])${ABOUT}`,
+  // bunu ekibe ver (but not "ekibe verilen")
+  "\\bekibe\\s+ver(?![a-zçğıöşü])",
+  // takımla yap / takım ile yap
+  "\\btakım(?:\\s+ile|la)\\s+yap",
+  // English
+  "\\b(?:do|build|fix|review|debug|handle)\\s+(?:it|this|that)\\s+(?:with\\s+the|as\\s+a)\\s+team\\b",
+  "\\buse\\s+(?:the\\s+)?(?:agent\\s+)?team\\b",
+];
+const TRIGGER = new RegExp(TRIGGERS.join("|"));
 
 export function normalize(text) {
-  // Turkish İ/ı would break plain toLowerCase() matching ("EKİP İLE").
-  return text.replace(/İ/g, "i").replace(/I/g, "i").replace(/ı/g, "i").toLowerCase();
+  // Turkish İ/I would break plain toLowerCase() matching ("EKİP İLE"). Map both to i;
+  // the patterns only rely on dotted i, except "takım" which keeps its ı.
+  return text.replace(/İ/g, "i").replace(/I/g, "i").toLowerCase().replace(/takim/g, "takım");
 }
 
 export function wantsEkip(prompt) {
   if (typeof prompt !== "string" || prompt.length === 0) return false;
-  const trimmed = prompt.trimStart();
   // Slash commands arrive as typed; /ekip:ekip already loads the skill.
-  if (trimmed.startsWith("/")) return false;
+  if (prompt.trimStart().startsWith("/")) return false;
   return TRIGGER.test(normalize(prompt));
 }
 
 export const CONTEXT =
-  "The user asked for the ekip workflow. Before doing anything else, invoke the Skill tool with skill \"ekip:ekip\" " +
-  "and follow it for this task. If the user is only talking about the ekip plugin itself or about a human team, " +
-  "rather than asking you to do work with the agent team, ignore this note.";
+  "The user may be asking for the ekip workflow. If the ekip skill is not already active for this task, " +
+  "invoke the Skill tool with skill \"ekip:ekip\" before doing anything else and follow it. " +
+  "Ignore this note if the ekip skill is already active, if this message is a report from a worker or teammate, " +
+  "or if the user is only talking about the ekip plugin itself or about a human team.";
 
 async function readStdin() {
   let data = "";

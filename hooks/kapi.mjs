@@ -1,34 +1,55 @@
-// SubagentStop quality gate for ekip:uygulayici (opt-in).
+// SubagentStop quality gate for ekip:uygulayici (opt-in, user-level config).
 //
-// If the project has .claude/ekip.json with a "check" command, run it when an
-// implementer finishes. On failure, exit 2 so the implementer gets the output
-// and one more turn to fix it. stop_hook_active prevents a second block, so a
-// worker is never trapped in a loop. Without the file, this hook does nothing.
+// The check command comes ONLY from your own ~/.claude/ekip-gates.json, keyed by
+// project path, never from a file inside the repository, so a cloned repo can't
+// make this hook run anything:
 //
-// .claude/ekip.json example:  { "check": "cargo check -q", "timeoutSec": 300 }
+//   { "C:/Users/Emir/projeler/sahne": "cargo check -q",
+//     "/home/emir/projeler/sahne": { "check": "cargo check -q", "timeoutSec": 300 } }
+//
+// When an implementer finishes and the check fails, exit 2 sends the output back
+// to it for one more turn. stop_hook_active prevents a second block (no loops).
+// Without a matching entry this hook does nothing.
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-export function loadConfig(cwd) {
-  const file = join(cwd, ".claude", "ekip.json");
-  if (!existsSync(file)) return null;
+export function normPath(p) {
+  let s = resolve(p).replace(/\\/g, "/").replace(/\/+$/, "");
+  if (process.platform === "win32" || /^[a-z]:\//i.test(s)) s = s.toLowerCase();
+  return s;
+}
+
+export function gatesFile(home = homedir()) {
+  return join(home, ".claude", "ekip-gates.json");
+}
+
+export function loadConfig(projectDir, file = gatesFile()) {
+  if (!projectDir || !existsSync(file)) return null;
+  let all;
   try {
-    const cfg = JSON.parse(readFileSync(file, "utf8"));
-    if (typeof cfg.check !== "string" || cfg.check.trim() === "") return null;
-    const timeoutSec = Number.isFinite(cfg.timeoutSec) ? Math.min(Math.max(cfg.timeoutSec, 10), 540) : 300;
-    return { check: cfg.check, timeoutSec };
+    all = JSON.parse(readFileSync(file, "utf8"));
   } catch {
     return null;
   }
+  const want = normPath(projectDir);
+  for (const [key, value] of Object.entries(all || {})) {
+    if (normPath(key) !== want) continue;
+    const cfg = typeof value === "string" ? { check: value } : value || {};
+    if (typeof cfg.check !== "string" || cfg.check.trim() === "") return null;
+    const t = Number(cfg.timeoutSec);
+    const timeoutSec = Number.isFinite(t) ? Math.min(Math.max(t, 10), 540) : 300;
+    return { check: cfg.check, timeoutSec };
+  }
+  return null;
 }
 
 export function shouldSkip(input) {
   if (input.stop_hook_active) return true;
-  const last = String(input.last_assistant_message || "");
   // A worker that already says it is blocked or needs context should reach the lead unchanged.
-  return /Status:\s*(BLOCKED|NEEDS_CONTEXT)/i.test(last);
+  return /Status:\s*(BLOCKED|NEEDS_CONTEXT)/i.test(String(input.last_assistant_message || ""));
 }
 
 function tail(text, lines) {
@@ -49,26 +70,26 @@ async function main() {
     return;
   }
   if (shouldSkip(input)) return;
-  const cwd = input.cwd || process.cwd();
-  const cfg = loadConfig(cwd);
+  // The hook's cwd follows the lead's `cd`; the project root is stable.
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  const cfg = loadConfig(projectDir, process.env.EKIP_GATES_FILE || gatesFile());
   if (!cfg) return;
 
   const run = spawnSync(cfg.check, {
-    cwd,
+    cwd: projectDir,
     shell: true,
     encoding: "utf8",
     timeout: cfg.timeoutSec * 1000,
     maxBuffer: 16 * 1024 * 1024,
   });
-  if (run.error && run.error.code === "ETIMEDOUT") return; // don't punish the worker for a slow check
+  if (run.error) return; // timeout or spawn failure: don't punish the worker for the gate itself
   if (run.status === 0) return;
 
-  const output = tail(`${run.stdout || ""}\n${run.stderr || ""}`, 40);
   process.stderr.write(
     `ekip gate: \`${cfg.check}\` failed (exit ${run.status}).\n` +
       "If the failure is caused by your files, fix it and report again. " +
       "If it comes from files you don't own, don't touch them: report DONE_WITH_CONCERNS and name the failing file.\n\n" +
-      output +
+      tail(`${run.stdout || ""}\n${run.stderr || ""}`, 40) +
       "\n",
   );
   process.exit(2);

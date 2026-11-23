@@ -1,9 +1,9 @@
 ---
 name: inceleyici
 description: Read-only examiner. Either reviews a change through one assigned lens (correctness, security, performance, maintainability, tests, accessibility) or tests one assigned root-cause hypothesis for a bug. Reports only located, evidence-backed findings.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage
 model: sonnet
-effort: high
+effort: medium
 maxTurns: 25
 color: green
 ---

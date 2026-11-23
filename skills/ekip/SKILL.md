@@ -22,9 +22,11 @@ Then pick **one** mode and tell the user in one line which mode and why:
 |---|---|---|
 | **Solo** | 1-2 files, sequential steps, edits in one file, or anything you can finish faster than you can explain it | You, plus optional `kesif` scouts |
 | **Subagents** (default) | Independent pieces: parallel searches, separate files to change, multi-lens review | You + 2-4 parallel subagents |
-| **Team** | Only: (a) bug with unclear cause and 2-3 rival explanations; (b) high-stakes review where reviewers should challenge each other; (c) cross-layer feature with clean file ownership (e.g. Rust backend / frontend / tests) | You + at most 3 teammates |
+| **Team** | Only: (a) bug with unclear cause and 2-3 rival explanations; (b) high-stakes review where reviewers should challenge each other | You + at most 3 `inceleyici` teammates |
 
-A team costs roughly one full session per teammate. If in doubt, choose the cheaper mode.
+A team costs roughly one full session per teammate. If in doubt, choose the cheaper mode. Cross-layer features go to Subagents: you write the shared contracts, workers implement against them.
+
+Team mode needs `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. If it is off, the same named calls simply run as subagents; that still works, just tell the user teammates couldn't debate directly.
 
 Ask the user a question only when the task is ambiguous **and** a wrong guess would waste real work. Otherwise state your assumption and go.
 
@@ -42,7 +44,8 @@ Rules:
 - Haiku finds and summarizes; it **never** decides, reviews or verifies. Re-check anything surprising it reports.
 - Do the hard parts yourself instead of handing them off: hand-off loses context, and you have it.
 - For a slice that is hard but still separable, you may pass `model: "opus"` on that one `ekip:uygulayici` call.
-- Never request `fable`. If a requested model isn't available, Claude Code falls back silently; don't rely on any model beyond opus/sonnet/haiku.
+- For a security review, or a hypothesis that needs deep tracing, pass `effort: "high"` on that `inceleyici` call; otherwise keep the defaults.
+- Never request `fable`. If a requested model isn't available, Claude Code substitutes another one (with a warning for subagents, without one for teammates); don't rely on any model beyond opus/sonnet/haiku.
 
 ## 3. Spawning
 
@@ -60,7 +63,7 @@ Rules:
 
 **Debug** (Solo, or Team case a): reproduce once and read recent changes (`git log -10 --stat`, `git diff`). If the cause is already clear with direct evidence, fix it solo. Otherwise write 2-3 specific, falsifiable hypotheses of different kinds (logic, data, state/concurrency, config/integration, environment) and give each to one `inceleyici` teammate, telling them to try to disprove each other. If none is confirmed, run one more round with new hypotheses, then report what is known.
 
-**Build** (any mode): explore → plan slices with owned files, contracts, order and acceptance criteria. If the work spans more than ~3 files or creates new modules, show the plan and **wait for the user's OK** before writing code. Then write shared contracts yourself, spawn `uygulayici` per slice, and keep the tricky slice for yourself.
+**Build** (Solo or Subagents): explore → plan slices with owned files, contracts, order and acceptance criteria. If the work spans more than ~3 files or creates new modules, show the plan and **wait for the user's OK** before writing code. Then write shared contracts yourself, spawn `uygulayici` per slice, and keep the tricky slice for yourself.
 
 **Research / questions**: parallel `kesif` scouts for locating things; you read and conclude.
 
@@ -69,7 +72,7 @@ Rules:
 - Wait for reports; don't redo their work in parallel.
 - `NEEDS_CONTEXT`: answer it, or make the change in a file you own. `BLOCKED`: unblock, take it over, or re-scope.
 - A worker that stops without a report: message it once (teammate) or re-run it with a tighter prompt (subagent).
-- Teams: teammates' permission prompts appear in your session; one unanswered prompt can hold back every teammate's messages, so tell the user if something is waiting. When a teammate is done, ask it to shut down.
+- Teams: teammates' permission prompts appear in your session, and a teammate waiting on one makes no progress (users have reported it delaying other teammates' messages too), so tell the user if something is waiting. Teammates don't get the agent's `maxTurns`, so give each a small, concrete task. When a teammate is done, ask it to shut down.
 
 ## 6. Gate (always)
 
