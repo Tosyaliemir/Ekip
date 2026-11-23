@@ -1,5 +1,9 @@
 # Ekip
 
+[![test](https://github.com/Tosyaliemir/ekip/actions/workflows/test.yml/badge.svg)](https://github.com/Tosyaliemir/ekip/actions/workflows/test.yml)
+
+**Türkçe** · [English](README.en.md)
+
 Claude Code için yalın bir çoklu ajan iş akışı. Bir oturumda **"Ekip ile yap"** de, gerisini o halletsin:
 
 - **Opus** (ana oturumun) liderdir: planlar, zor kısımları kendisi yazar, son kararı verir.
@@ -109,6 +113,8 @@ GitHub'daki kullanıcı bildirimlerine göre (her sürümde geçerli olmayabilir
 node --test tests/hooks.test.mjs      # hook testleri (tetikleyici ve kapı)
 claude plugin validate .              # plugin ve marketplace doğrulama
 ```
+
+Her push'ta GitHub Actions bu testleri Linux ve Windows'ta çalıştırır ve plugin'i doğrular.
 
 ## Lisans
 
